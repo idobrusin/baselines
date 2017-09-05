@@ -5,11 +5,14 @@ from baselines import common
 from baselines.common import tf_util as U
 from baselines.acktr import kfac
 from baselines.acktr.filters import ZFilter
+import cv2
+import time
+import os
 
 def pathlength(path):
     return path["reward"].shape[0]# Loss function that we'll differentiate to get the policy gradient
 
-def rollout(env, policy, max_pathlength, animate=False, obfilter=None):
+def rollout(env, policy, max_pathlength,iteration, img_save_path, animate=False, obfilter=None):
     """
     Simulate the env and policy for max_pathlength steps
     """
@@ -23,9 +26,15 @@ def rollout(env, policy, max_pathlength, animate=False, obfilter=None):
     ac_dists = []
     logps = []
     rewards = []
-    for _ in range(max_pathlength):
+
+    if animate:
+        os.mkdir(img_save_path + "iter_" + str(iteration) )
+
+    for j in range(max_pathlength):
         if animate:
-            env.render()
+            frame = env.render(mode="rgb_array")
+
+            cv2.imwrite(img_save_path + "iter_"+str(iteration)+"/img_" + str(j) + ".png", frame)
         state = np.concatenate([ob, prev_ob], -1)
         obs.append(state)
         ac, ac_dist, logp = policy.act(state)
@@ -35,8 +44,13 @@ def rollout(env, policy, max_pathlength, animate=False, obfilter=None):
         prev_ob = np.copy(ob)
         scaled_ac = env.action_space.low + (ac + 1.) * 0.5 * (env.action_space.high - env.action_space.low)
         scaled_ac = np.clip(scaled_ac, env.action_space.low, env.action_space.high)
+        #print("action", scaled_ac)
         ob, rew, done, _ = env.step(scaled_ac)
+        #print("ob", ob)
+        #print("rew", rew)
         if obfilter: ob = obfilter(ob)
+        #print("ob2", ob)
+        #print()
         rewards.append(rew)
         if done:
             terminated = True
@@ -74,16 +88,20 @@ def learn(env, policy, vf, gamma, lam, timesteps_per_batch, num_timesteps,
 
     i = 0
     timesteps_so_far = 0
+
+    img_save_path = logger.get_dir() + "/imgs/"
+    os.mkdir(img_save_path)
+
     while True:
         if timesteps_so_far > num_timesteps:
             break
         logger.log("********** Iteration %i ************"%i)
-
+        print("timesteps" ,timesteps_so_far)
         # Collect paths until we have enough timesteps
         timesteps_this_batch = 0
         paths = []
         while True:
-            path = rollout(env, policy, max_pathlength, animate=(len(paths)==0 and (i % 10 == 0) and animate), obfilter=obfilter)
+            path = rollout(env, policy, max_pathlength, i, img_save_path,animate=(len(paths)==0 and (i % 100 == 0) and animate), obfilter=obfilter)
             paths.append(path)
             n = pathlength(path)
             timesteps_this_batch += n

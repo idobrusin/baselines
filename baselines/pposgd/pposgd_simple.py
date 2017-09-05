@@ -7,8 +7,10 @@ from baselines.common.mpi_adam import MpiAdam
 from baselines.common.mpi_moments import mpi_moments
 from mpi4py import MPI
 from collections import deque
+import cv2
+import os
 
-def traj_segment_generator(pi, env, horizon, stochastic):
+def traj_segment_generator(pi, env, horizon, img_save_path,stochastic, animate=True):
     t = 0
     ac = env.action_space.sample() # not used, just so we have the datatype
     new = True # marks if we're on first timestep of an episode
@@ -27,6 +29,8 @@ def traj_segment_generator(pi, env, horizon, stochastic):
     acs = np.array([ac for _ in range(horizon)])
     prevacs = acs.copy()
 
+    render = False
+
     while True:
         prevac = ac
         ac, vpred = pi.act(stochastic, ob)
@@ -41,13 +45,21 @@ def traj_segment_generator(pi, env, horizon, stochastic):
             # several of these batches, then be sure to do a deepcopy
             ep_rets = []
             ep_lens = []
+            if animate and (int(t/horizon)%100 == 0):
+                os.mkdir(img_save_path + "iter_" + str(int(t/horizon)) )
+                render = True
+            else:
+                render = False
         i = t % horizon
         obs[i] = ob
         vpreds[i] = vpred
         news[i] = new
         acs[i] = ac
         prevacs[i] = prevac
+        if render and i <= 200:
+            frame = env.render(mode="rgb_array")
 
+            cv2.imwrite(img_save_path + "iter_"+str(int(t/horizon))+"/img_" + str(i) + ".png", frame)
         ob, rew, new, _ = env.step(ac)
         rews[i] = rew
 
@@ -130,9 +142,14 @@ def learn(env, policy_func, *,
     U.initialize()
     adam.sync()
 
+    img_save_path = logger.get_dir() + "/imgs/"
+    os.mkdir(img_save_path)
+
     # Prepare for rollouts
     # ----------------------------------------
-    seg_gen = traj_segment_generator(pi, env, timesteps_per_batch, stochastic=True)
+
+
+    seg_gen = traj_segment_generator(pi, env, timesteps_per_batch, img_save_path, stochastic=True, animate=True)
 
     episodes_so_far = 0
     timesteps_so_far = 0
@@ -183,7 +200,7 @@ def learn(env, policy_func, *,
             losses = [] # list of tuples, each of which gives the loss for a minibatch
             for batch in d.iterate_once(optim_batchsize):
                 *newlosses, g = lossandgrad(batch["ob"], batch["ac"], batch["atarg"], batch["vtarg"], cur_lrmult)
-                adam.update(g, optim_stepsize * cur_lrmult) 
+                adam.update(g, optim_stepsize * cur_lrmult)
                 losses.append(newlosses)
             logger.log(fmt_row(13, np.mean(losses, axis=0)))
 
@@ -191,7 +208,7 @@ def learn(env, policy_func, *,
         losses = []
         for batch in d.iterate_once(optim_batchsize):
             newlosses = compute_losses(batch["ob"], batch["ac"], batch["atarg"], batch["vtarg"], cur_lrmult)
-            losses.append(newlosses)            
+            losses.append(newlosses)
         meanlosses,_,_ = mpi_moments(losses, axis=0)
         logger.log(fmt_row(13, meanlosses))
         for (lossval, name) in zipsame(meanlosses, loss_names):
