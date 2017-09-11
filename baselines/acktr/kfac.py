@@ -60,7 +60,7 @@ class KfacOptimizer():
         bpropTensors = []
         opTypes = []
         fops = []
-
+        
         def searchFactors(gradient, graph):
             # hard coded search stratergy
             bpropOp = gradient.op

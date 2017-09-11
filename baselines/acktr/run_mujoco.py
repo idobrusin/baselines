@@ -15,7 +15,7 @@ import os.path as osp
 
 def train(env_id, num_timesteps, seed):
     env=gym.make(env_id)
-    logger.configure(dir = osp.join("/home/hermannl/master_project/git/baselines/baselines/acktr/logs/",
+    logger.configure(dir = osp.join("logs/",
         datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f")))
     if logger.get_dir():
         env = bench.Monitor(env, os.path.join(logger.get_dir(), "monitor.json"))
@@ -36,7 +36,7 @@ def train(env_id, num_timesteps, seed):
         learn(env, policy=policy, vf=vf,
             gamma=0.99, lam=0.97, timesteps_per_batch=2500,
             desired_kl=0.002,
-            num_timesteps=num_timesteps, animate=True)
+            num_timesteps=num_timesteps, animate=False)
 
         env.close()
 
