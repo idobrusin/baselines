@@ -36,7 +36,7 @@ def train(env_id, num_timesteps, seed):
         learn(env, policy=policy, vf=vf,
             gamma=0.99, lam=0.97, timesteps_per_batch=2500,
             desired_kl=0.002,
-            num_timesteps=num_timesteps, animate=False)
+            num_timesteps=num_timesteps, animate=True)
 
         env.close()
 

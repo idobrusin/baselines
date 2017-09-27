@@ -136,13 +136,16 @@ def learn(env, policy, vf, gamma, lam, timesteps_per_batch, num_timesteps,
         do_update(ob_no, action_na, standardized_adv_n)
 
         # Adjust stepsize
+        min_stepsize = np.float32(1e-8)
+        max_stepsize = np.float32(1e0)
+        # Adjust stepsize
         kl = policy.compute_kl(ob_no, oldac_dist)
         if kl > desired_kl * 2:
             logger.log("kl too high")
-            U.eval(tf.assign(stepsize, stepsize / 1.5))
+            U.eval(tf.assign(stepsize, tf.maximum(min_stepsize, stepsize / 1.5)))
         elif kl < desired_kl / 2:
             logger.log("kl too low")
-            U.eval(tf.assign(stepsize, stepsize * 1.5))
+            U.eval(tf.assign(stepsize, tf.minimum(max_stepsize, stepsize * 1.5)))
         else:
             logger.log("kl just right!")
 
