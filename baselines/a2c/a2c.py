@@ -98,6 +98,7 @@ class Runner(object):
         nenv = env.num_envs
         self.batch_ob_shape = (nenv*nsteps, nh, nw, nc*nstack)
         self.obs = np.zeros((nenv, nh, nw, nc*nstack), dtype=np.uint8)
+        self.nc = nc
         obs = env.reset()
         self.update_obs(obs)
         self.gamma = gamma
@@ -108,8 +109,8 @@ class Runner(object):
     def update_obs(self, obs):
         # Do frame-stacking here instead of the FrameStack wrapper to reduce
         # IPC overhead
-        self.obs = np.roll(self.obs, shift=-1, axis=3)
-        self.obs[:, :, :, -1] = obs[:, :, :, 0]
+        self.obs = np.roll(self.obs, shift=-self.nc, axis=3)
+        self.obs[:, :, :, -self.nc:] = obs
 
     def run(self):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
@@ -182,27 +183,6 @@ def learn(policy, env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_c
             logger.record_tabular("explained_variance", float(ev))
             logger.dump_tabular()
     env.close()
-
-def main():
-    env_id = 'SpaceInvaders'
-    seed = 42
-    nenvs = 4
-
-    def make_env(rank):
-        def env_fn():
-            env = gym.make('{}NoFrameskip-v4'.format(env_id))
-            env.seed(seed + rank)
-            if logger.get_dir():
-                from baselines import bench
-                env = bench.Monitor(env, osp.join(logger.get_dir(), "{}.monitor.json".format(rank)))
-                gym.logger.setLevel(logging.WARN)
-            return wrap_deepmind(env)
-        return env_fn
-
-    set_global_seeds(seed)
-    env = SubprocVecEnv([make_env(i) for i in range(nenvs)])
-    policy = CnnPolicy
-    learn(policy, env, seed)
 
 if __name__ == '__main__':
     main()
