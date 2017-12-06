@@ -13,11 +13,9 @@ def train(env_id, num_timesteps, seed):
     set_global_seeds(seed)
     env = gym.make(env_id)
     def policy_fn(name, ob_space, ac_space):
-        return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
-            hid_size=64, num_hid_layers=2)
-	logger.configure(dir = osp.join("/home/hermannl/master_project/git/baselines/baselines/pposgd/logs/",
-        datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f")))    
-	env = bench.Monitor(env, logger.get_dir())
+        return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,hid_size=64, num_hid_layers=2)
+    logger.configure(dir = osp.join("/home/hermannl/master_project/git/baselines/baselines/ppo1/logs/", datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f")))
+    env = bench.Monitor(env, logger.get_dir())
     env.seed(seed)
     gym.logger.setLevel(logging.WARN)
     pposgd_simple.learn(env, policy_fn,
@@ -32,7 +30,7 @@ def train(env_id, num_timesteps, seed):
 def main():
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env', help='environment ID', default='Hopper-v1')
+    parser.add_argument('--env', help='environment ID', default='JacoPush-v1')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--num-timesteps', type=int, default=int(1e6))
     args = parser.parse_args()
