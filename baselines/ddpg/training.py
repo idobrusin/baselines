@@ -3,6 +3,8 @@ import time
 from collections import deque
 import pickle
 
+import cv2
+
 from baselines.ddpg.ddpg import DDPG
 import baselines.common.tf_util as U
 
@@ -65,6 +67,10 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
         epoch_actions = []
         epoch_qs = []
         epoch_episodes = 0
+
+        img_save_path = logger.get_dir() + "/imgs/"
+        os.mkdir(img_save_path)
+
         for epoch in range(nb_epochs):
             for cycle in range(nb_epoch_cycles):
                 # Perform rollouts.
@@ -121,13 +127,21 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
                 # Evaluate.
                 eval_episode_rewards = []
                 eval_qs = []
+
+                iteration = epoch * nb_epoch_cycles + cycle
+
+                render_now = render_eval and iteration % 100 == 0
+                if render_now:
+                    os.mkdir(img_save_path + "iter_" + str(iteration))
+
                 if eval_env is not None:
                     eval_episode_reward = 0.
                     for t_rollout in range(nb_eval_steps):
                         eval_action, eval_q = agent.pi(eval_obs, apply_noise=False, compute_Q=True)
                         eval_obs, eval_r, eval_done, eval_info = eval_env.step(max_action * eval_action)  # scale for execution in env (as far as DDPG is concerned, every action is in [-1, 1])
-                        if render_eval:
-                            eval_env.render()
+                        if render_eval and render_now:
+                            frame = eval_env.render(mode="rgb_array")
+                            cv2.imwrite(img_save_path + "iter_" + str(iteration) + "/img_" + str(t_rollout) + ".png", frame)
                         eval_episode_reward += eval_r
 
                         eval_qs.append(eval_q)
@@ -158,9 +172,9 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
             combined_stats['rollout/actions_std'] = np.std(epoch_actions)
             # Evaluation statistics.
             if eval_env is not None:
-                combined_stats['eval/return'] = eval_episode_rewards
+                combined_stats['eval/return'] = np.mean(eval_episode_rewards)
                 combined_stats['eval/return_history'] = np.mean(eval_episode_rewards_history)
-                combined_stats['eval/Q'] = eval_qs
+                combined_stats['eval/Q'] = np.mean(eval_qs)
                 combined_stats['eval/episodes'] = len(eval_episode_rewards)
             def as_scalar(x):
                 if isinstance(x, np.ndarray):
@@ -170,6 +184,8 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
                     return x
                 else:
                     raise ValueError('expected scalar, got %s'%x)
+            for x,y in combined_stats.items():
+                print(x,y)
             combined_stats_sums = MPI.COMM_WORLD.allreduce(np.array([as_scalar(x) for x in combined_stats.values()]))
             combined_stats = {k : v / mpi_size for (k,v) in zip(combined_stats.keys(), combined_stats_sums)}
 

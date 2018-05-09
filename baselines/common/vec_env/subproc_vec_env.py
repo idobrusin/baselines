@@ -24,6 +24,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
             break
         elif cmd == 'get_spaces':
             remote.send((env.observation_space, env.action_space))
+        elif cmd == 'render':
+            img = env.render('rgb_array')
+            remote.send((img))
         else:
             raise NotImplementedError
 
@@ -59,6 +62,10 @@ class SubprocVecEnv(VecEnv):
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
+
+    def render_one(self):
+        self.remotes[0].send(('render', None))
+        return self.remotes[0].recv()
 
     def reset(self):
         for remote in self.remotes:
