@@ -68,6 +68,10 @@ class MultiCategoricalPdType(PdType):
         self.ncats = nvec
     def pdclass(self):
         return MultiCategoricalPd
+    def pdfromlatent(self, latent_vector, init_scale=1.0, init_bias=0.0):
+        pdparam = fc(latent_vector, 'pi', sum(self.ncats), init_scale=init_scale, init_bias=init_bias)
+        return self.pdfromflat(pdparam), pdparam
+
     def pdfromflat(self, flat):
         return MultiCategoricalPd(self.ncats, flat)
     def param_shape(self):
