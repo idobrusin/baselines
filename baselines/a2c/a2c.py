@@ -22,18 +22,18 @@ class Model(object):
         sess = tf_util.make_session()
         nbatch = nenvs*nsteps
 
-        A = tf.placeholder(tf.int32, [nbatch])
+        step_model = policy(sess, ob_space, ac_space, nenvs, 1, reuse=False)
+        train_model = policy(sess, ob_space, ac_space, nenvs*nsteps, nsteps, reuse=True)
+
+        A = train_model.pdtype.sample_placeholder([nbatch])
         ADV = tf.placeholder(tf.float32, [nbatch])
         R = tf.placeholder(tf.float32, [nbatch])
         LR = tf.placeholder(tf.float32, [])
 
-        step_model = policy(sess, ob_space, ac_space, nenvs, 1, reuse=False)
-        train_model = policy(sess, ob_space, ac_space, nenvs*nsteps, nsteps, reuse=True)
-
-        neglogpac = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=train_model.pi, labels=A)
+        neglogpac = train_model.pd.neglogp(A)
         pg_loss = tf.reduce_mean(ADV * neglogpac)
         vf_loss = tf.reduce_mean(mse(tf.squeeze(train_model.vf), R))
-        entropy = tf.reduce_mean(cat_entropy(train_model.pi))
+        entropy = tf.reduce_mean(train_model.pd.entropy())
         loss = pg_loss - entropy*ent_coef + vf_loss * vf_coef
 
         params = find_trainable_variables("model")
@@ -87,6 +87,8 @@ class Runner(AbstractEnvRunner):
     def __init__(self, env, model, nsteps=5, gamma=0.99):
         super().__init__(env=env, model=model, nsteps=nsteps)
         self.gamma = gamma
+        self.batch_ac_shape = (env.num_envs*self.nsteps,) + env.action_space.shape
+        self.ac_dtype = env.action_space.dtype
 
     def run(self):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
@@ -109,7 +111,8 @@ class Runner(AbstractEnvRunner):
         #batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=np.uint8).swapaxes(1, 0).reshape(self.batch_ob_shape)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
-        mb_actions = np.asarray(mb_actions, dtype=np.int32).swapaxes(1, 0)
+        #mb_actions = np.asarray(mb_actions, dtype=np.int32).swapaxes(1, 0) (see ppo2.py)
+        mb_actions = np.asarray(mb_actions, dtype=self.ac_dtype).swapaxes(1, 0).reshape(self.batch_ac_shape)
         mb_values = np.asarray(mb_values, dtype=np.float32).swapaxes(1, 0)
         mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
         mb_masks = mb_dones[:, :-1]
@@ -125,12 +128,12 @@ class Runner(AbstractEnvRunner):
                 rewards = discount_with_dones(rewards, dones, self.gamma)
             mb_rewards[n] = rewards
         mb_rewards = mb_rewards.flatten()
-        mb_actions = mb_actions.flatten()
+        #mb_actions = mb_actions.flatten()
         mb_values = mb_values.flatten()
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100):
+def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, save_interval=None, load_snapshot=None, save_timesteps=None):
     set_global_seeds(seed)
 
     nenvs = env.num_envs
@@ -138,23 +141,39 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
     ac_space = env.action_space
     model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
         max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
+    if load_snapshot:
+        model.load(load_snapshot)
+        logger.log("Loading snapshot: {}".format(load_snapshot))
     runner = Runner(env, model, nsteps=nsteps, gamma=gamma)
 
     nbatch = nenvs*nsteps
+    # automatically adjust save_timesteps, save more often
+    save_timesteps = save_timesteps//nbatch*nbatch
+    assert save_timesteps == None or save_timesteps%nbatch == 0, "Save timesteps of {} must align with batch size of {}".format(save_timesteps, nbatch)
     tstart = time.time()
     for update in range(1, total_timesteps//nbatch+1):
+        ustart = time.time()
+        timesteps = update*nbatch
         obs, states, rewards, masks, actions, values = runner.run()
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         nseconds = time.time()-tstart
-        fps = int((update*nbatch)/nseconds)
         if update % log_interval == 0 or update == 1:
+            useconds = time.time()-ustart
+            fps = int((nbatch)/useconds)
             ev = explained_variance(values, rewards)
             logger.record_tabular("nupdates", update)
-            logger.record_tabular("total_timesteps", update*nbatch)
+            logger.record_tabular("total_timesteps", timesteps)
             logger.record_tabular("fps", fps)
-            logger.record_tabular("policy_entropy", float(policy_entropy))
-            logger.record_tabular("value_loss", float(value_loss))
-            logger.record_tabular("explained_variance", float(ev))
+            logger.record_tabular("policy_entropy", round(float(policy_entropy),6))
+            logger.record_tabular("value_loss", round(float(value_loss),6))
+            logger.record_tabular("explained_variance", round(float(ev),6))
+            logger.record_tabular("time_elapsed", round(nseconds,6))
             logger.dump_tabular()
+
+        if save_timesteps and (timesteps%save_timesteps == 0 or timesteps == 1) and logger.get_dir():
+            savepath = osp.join(logger.get_dir(), 'snapshot_{0:09d}.pkl'.format(timesteps))
+            logger.log("Saving snapshot: {}".format(savepath))
+            model.save(savepath)
+
     env.close()
     return model
