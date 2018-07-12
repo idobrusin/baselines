@@ -2,7 +2,7 @@ from collections import deque
 
 import numpy as np
 import pickle
-from mujoco_py import MujocoException
+#from mujoco_py import MujocoException
 
 from baselines.her.util import convert_episode_to_batch_major, store_args
 
@@ -112,7 +112,7 @@ class RolloutWorker:
                         info_values[idx][t, i] = info[key]
                     if self.render:
                         self.envs[i].render()
-                except MujocoException as e:
+                except:
                     return self.generate_rollouts()
 
             if np.isnan(o_new).any():

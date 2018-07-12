@@ -8,6 +8,7 @@ from baselines import logger
 from collections import deque
 from baselines.common import explained_variance
 from baselines.common.runners import AbstractEnvRunner
+import cv2
 
 class Model(object):
     def __init__(self, *, policy, ob_space, ac_space, nbatch_act, nbatch_train,
@@ -91,18 +92,30 @@ class Runner(AbstractEnvRunner):
         super().__init__(env=env, model=model, nsteps=nsteps)
         self.lam = lam
         self.gamma = gamma
+		self.img_save_path = logger.get_dir() + "/imgs/"
+        os.mkdir(self.img_save_path)
 
-    def run(self):
+    def run(self, iteration):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[],[]
         mb_states = self.states
         epinfos = []
-        for _ in range(self.nsteps):
+        if iteration % 1000 == 0:
+            os.mkdir(self.img_save_path + "iter_" + str(iteration))
+            render = True
+        else:
+            render = False
+        for i in range(self.nsteps):
             actions, values, self.states, neglogpacs = self.model.step(self.obs, self.states, self.dones)
             mb_obs.append(self.obs.copy())
             mb_actions.append(actions)
             mb_values.append(values)
             mb_neglogpacs.append(neglogpacs)
             mb_dones.append(self.dones)
+
+            if render and i < 100:
+                frame = self.env.venv.envs[0].render(mode="rgb_array")
+                cv2.imwrite(self.img_save_path + "iter_" + str(iteration) + "/img_" + str(i) + ".png", frame)
+
             self.obs[:], rewards, self.dones, infos = self.env.step(actions)
             for info in infos:
                 maybeepinfo = info.get('episode')
@@ -178,14 +191,14 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
     tfirststart = time.time()
 
     nupdates = total_timesteps//nbatch
-    for update in range(1, nupdates+1):
+    for update in range(0, nupdates+1):
         assert nbatch % nminibatches == 0
         nbatch_train = nbatch // nminibatches
         tstart = time.time()
         frac = 1.0 - (update - 1.0) / nupdates
         lrnow = lr(frac)
         cliprangenow = cliprange(frac)
-        obs, returns, masks, actions, values, neglogpacs, states, epinfos = runner.run() #pylint: disable=E0632
+        obs, returns, masks, actions, values, neglogpacs, states, epinfos = runner.run(update) #pylint: disable=E0632
         epinfobuf.extend(epinfos)
         mblossvals = []
         if states is None: # nonrecurrent version

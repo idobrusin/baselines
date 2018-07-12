@@ -38,7 +38,7 @@ def main():
     logger.configure(dir=osp.join("/home/hermannl/master_thesis/git/baselines_private/baselines/acktr/logs/",
                                   datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")),
                      format_strs=["tensorboard", "stdout", "csv", "log"])
-    train(env_id='PR2_Cube_cont-v0', num_timesteps=10e8, seed=1)
+    train(env_id='PR2_Cube_cont-v0', num_timesteps=10e8, seed=10)
 
 if __name__ == "__main__":
     main()

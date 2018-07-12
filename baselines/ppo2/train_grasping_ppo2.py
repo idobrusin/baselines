@@ -27,19 +27,24 @@ def train(env_id, num_timesteps, seed):
 
     set_global_seeds(seed)
     policy = MlpPolicy
-    ppo2.learn(policy=policy, env=env, nsteps=2048, nminibatches=32,
+    ppo2.learn(policy=policy, env=env, nsteps=4096, nminibatches=32,
         lam=0.95, gamma=0.99, noptepochs=10, log_interval=1,
         ent_coef=0.0,
         lr=1e-4, # changed
         cliprange=0.2,
         total_timesteps=num_timesteps)
+    # try: noptepochs 2 /4
+    #
+    #
+    #
+    #
 
 
 def main():
     logger.configure(dir=osp.join("/home/hermannl/master_thesis/git/baselines_private/baselines/ppo2/logs/",
                                     datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")),
                      format_strs=["tensorboard", "stdout", "csv", "log"])
-    train(env_id='PR2_Cube_cont-v0', num_timesteps=10e8, seed=1)
+    train(env_id='PR2_Cube_cont-v0', num_timesteps=10e8, seed=10)
 
 
 if __name__ == '__main__':

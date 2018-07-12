@@ -30,7 +30,6 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
         reward_scale=reward_scale)
     logger.info('Using agent with the following configuration:')
     logger.info(str(agent.__dict__.items()))
-
     # Set up logging stuff only for a single worker.
     if rank == 0:
         saver = tf.train.Saver()
