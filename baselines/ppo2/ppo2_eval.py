@@ -4,7 +4,7 @@ import multiprocessing
 import cloudpickle
 import tensorflow as tf
 
-from baselines.ppo2.policies import CnnPolicy
+from baselines.ppo2.policies import CnnPolicy, MlpPolicy
 from baselines.ppo2.ppo2 import Model, Runner
 
 def eval(env, nsteps, gamma=0.99, lam=0.95, load_path=None, nminibatches=4, vf_coef=0.5,  max_grad_norm=0.5, ent_coef=.01) :
@@ -26,7 +26,8 @@ def eval(env, nsteps, gamma=0.99, lam=0.95, load_path=None, nminibatches=4, vf_c
     ac_space = env.action_space
     nbatch = nenvs * nsteps
     nbatch_train = nbatch // nminibatches
-    policy = CnnPolicy
+    #policy = CnnPolicy
+    policy = MlpPolicy
 
     make_model = lambda : Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nbatch_act=nenvs, nbatch_train=nbatch_train,
                     nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,

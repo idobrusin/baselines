@@ -88,18 +88,20 @@ class Model(object):
 
 class Runner(AbstractEnvRunner):
 
-    def __init__(self, *, env, model, nsteps, gamma, lam):
+    def __init__(self, *, env, model, nsteps, gamma, lam, save_frames = False):
         super().__init__(env=env, model=model, nsteps=nsteps)
         self.lam = lam
         self.gamma = gamma
-		self.img_save_path = logger.get_dir() + "/imgs/"
-        os.mkdir(self.img_save_path)
+        self.save_frames = save_frames
+        if self.save_frames:
+            self.img_save_path = logger.get_dir() + "/imgs/"
+            os.mkdir(self.img_save_path)
 
     def run(self, iteration):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[],[]
         mb_states = self.states
         epinfos = []
-        if iteration % 1000 == 0:
+        if self.save_frames and iteration % 1000 == 0:
             os.mkdir(self.img_save_path + "iter_" + str(iteration))
             render = True
         else:
@@ -117,6 +119,9 @@ class Runner(AbstractEnvRunner):
                 cv2.imwrite(self.img_save_path + "iter_" + str(iteration) + "/img_" + str(i) + ".png", frame)
 
             self.obs[:], rewards, self.dones, infos = self.env.step(actions)
+            # added this for play_grasping evaluation
+            # if self.dones[0]:
+            #     epinfos.append(rewards[0])
             for info in infos:
                 maybeepinfo = info.get('episode')
                 if maybeepinfo: epinfos.append(maybeepinfo)
@@ -185,7 +190,7 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
     model = make_model()
     if load_path is not None:
         model.load(load_path)
-    runner = Runner(env=env, model=model, nsteps=nsteps, gamma=gamma, lam=lam)
+    runner = Runner(env=env, model=model, nsteps=nsteps, gamma=gamma, lam=lam, save_frames=True)
 
     epinfobuf = deque(maxlen=100)
     tfirststart = time.time()

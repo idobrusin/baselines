@@ -11,7 +11,7 @@ from baselines.bench import Monitor
 import gym
 import datetime
 import os.path as osp
-from gym_grasping.envs.GraspingCamGymEnv import GraspingCamGymEnv
+from gym_grasping.envs.grasping_env import GraspingEnv
 
 def train(env_id, num_timesteps, seed):
     set_global_seeds(seed)
@@ -28,7 +28,7 @@ def train(env_id, num_timesteps, seed):
             policy = GaussianMlpPolicy(ob_dim, ac_dim)
 
         learn(env, policy=policy, vf=vf,
-            gamma=0.99, lam=0.97, timesteps_per_batch=2500,
+            gamma=0.99, lam=0.97, timesteps_per_batch=200,
             desired_kl=0.002,
             num_timesteps=num_timesteps, animate=True)
 
@@ -38,7 +38,7 @@ def main():
     logger.configure(dir=osp.join("/home/hermannl/master_thesis/git/baselines_private/baselines/acktr/logs/",
                                   datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")),
                      format_strs=["tensorboard", "stdout", "csv", "log"])
-    train(env_id='PR2_Cube_cont-v0', num_timesteps=10e8, seed=10)
+    train(env_id='kuka_block_cont-v0', num_timesteps=10e7, seed=10)
 
 if __name__ == "__main__":
     main()
