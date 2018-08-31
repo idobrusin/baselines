@@ -9,6 +9,7 @@ from collections import deque
 from baselines.common import explained_variance
 from baselines.common.runners import AbstractEnvRunner
 import cv2
+from gym.spaces import Dict
 
 class Model(object):
     def __init__(self, *, policy, ob_space, ac_space, nbatch_act, nbatch_train,
@@ -53,8 +54,15 @@ class Model(object):
         def train(lr, cliprange, obs, returns, masks, actions, values, neglogpacs, states=None):
             advs = returns - values
             advs = (advs - advs.mean()) / (advs.std() + 1e-8)
-            td_map = {train_model.X:obs, A:actions, ADV:advs, R:returns, LR:lr,
-                    CLIPRANGE:cliprange, OLDNEGLOGPAC:neglogpacs, OLDVPRED:values}
+            if isinstance(obs, dict):
+                td_map = {A: actions, ADV: advs, R: returns, LR: lr,
+                          CLIPRANGE: cliprange, OLDNEGLOGPAC: neglogpacs, OLDVPRED: values}
+
+                for key, value in train_model.placeholder_dict.items():
+                    td_map[value] = obs[key]
+            else:
+                td_map = {train_model.X: obs, A: actions, ADV: advs, R: returns, LR: lr,
+                          CLIPRANGE: cliprange, OLDNEGLOGPAC: neglogpacs, OLDVPRED: values}
             if states is not None:
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks
@@ -98,7 +106,13 @@ class Runner(AbstractEnvRunner):
             os.mkdir(self.img_save_path)
 
     def run(self, iteration):
-        mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[],[]
+        mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[]
+        if isinstance(self.obs, dict):
+            mb_obs = {}
+            for key in self.obs:
+                mb_obs[key] = []
+        else:
+            mb_obs = []
         mb_states = self.states
         epinfos = []
         if self.save_frames and iteration % 1000 == 0:
@@ -108,26 +122,34 @@ class Runner(AbstractEnvRunner):
             render = False
         for i in range(self.nsteps):
             actions, values, self.states, neglogpacs = self.model.step(self.obs, self.states, self.dones)
-            mb_obs.append(self.obs.copy())
+            if isinstance(self.obs, dict):
+                for key, value in self.obs.items():
+                    mb_obs[key].append(value.copy())
+            else:
+                mb_obs.append(self.obs.copy())
             mb_actions.append(actions)
             mb_values.append(values)
             mb_neglogpacs.append(neglogpacs)
             mb_dones.append(self.dones)
 
             if render and i < 100:
-                frame = self.env.venv.envs[0].render(mode="rgb_array")
+                frame = self.env.venv.envs[0].render(mode="rgb_array")*255
                 cv2.imwrite(self.img_save_path + "iter_" + str(iteration) + "/img_" + str(i) + ".png", frame)
 
-            self.obs[:], rewards, self.dones, infos = self.env.step(actions)
+            self.obs, rewards, self.dones, infos = self.env.step(actions)
             # added this for play_grasping evaluation
-            # if self.dones[0]:
-            #     epinfos.append(rewards[0])
+            if self.nsteps == 1 and self.dones[0]:
+                epinfos.append(rewards[0])
             for info in infos:
                 maybeepinfo = info.get('episode')
                 if maybeepinfo: epinfos.append(maybeepinfo)
             mb_rewards.append(rewards)
         #batch of steps to batch of rollouts
-        mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
+        if isinstance(self.obs, dict):
+            for key, value in mb_obs.items():
+                mb_obs[key] = np.asarray(value, dtype=value[0].dtype)
+        else:
+            mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32)
         mb_actions = np.asarray(mb_actions)
         mb_values = np.asarray(mb_values, dtype=np.float32)
@@ -153,10 +175,16 @@ class Runner(AbstractEnvRunner):
 # obs, returns, masks, actions, values, neglogpacs, states = runner.run()
 def sf01(arr):
     """
-    swap and then flatten axes 0 and 1
-    """
-    s = arr.shape
-    return arr.swapaxes(0, 1).reshape(s[0] * s[1], *s[2:])
+        swap and then flatten axes 0 and 1
+        """
+    if isinstance(arr, dict):
+        for key, value in arr.items():
+            s = value.shape
+            arr[key] = value.swapaxes(0, 1).reshape(s[0] * s[1], *s[2:])
+        return arr
+    else:
+        s = arr.shape
+        return arr.swapaxes(0, 1).reshape(s[0] * s[1], *s[2:])
 
 def constfn(val):
     def f(_):
@@ -213,7 +241,8 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
                 for start in range(0, nbatch, nbatch_train):
                     end = start + nbatch_train
                     mbinds = inds[start:end]
-                    slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
+                    slices = (get_part(arr, mbinds) for arr in (obs, returns, masks, actions,
+                                                                values, neglogpacs))
                     mblossvals.append(model.train(lrnow, cliprangenow, *slices))
         else: # recurrent version
             assert nenvs % nminibatches == 0
@@ -227,7 +256,8 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
                     end = start + envsperbatch
                     mbenvinds = envinds[start:end]
                     mbflatinds = flatinds[mbenvinds].ravel()
-                    slices = (arr[mbflatinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
+                    slices = (get_part(arr, mbflatinds) for arr in (obs, returns, masks, actions,
+                                                                    values, neglogpacs))
                     mbstates = states[mbenvinds]
                     mblossvals.append(model.train(lrnow, cliprangenow, *slices, mbstates))
 
@@ -253,8 +283,18 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
             savepath = osp.join(checkdir, '%.5i'%update)
             print('Saving to', savepath)
             model.save(savepath)
+            env.save_norm(savepath)
     env.close()
     return model
+
+def get_part(l, mb):
+    if isinstance(l, dict):
+        out = {}
+        for key, value in l.items():
+            out[key] = value[mb]
+        return out
+    else:
+        return l[mb]
 
 def safemean(xs):
     return np.nan if len(xs) == 0 else np.mean(xs)

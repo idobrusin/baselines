@@ -1,5 +1,5 @@
 import tensorflow as tf
-from gym.spaces import Discrete, Box
+from gym.spaces import Discrete, Box, Dict
 
 def observation_input(ob_space, batch_size=None, name='Ob'):
     '''
@@ -23,7 +23,16 @@ def observation_input(ob_space, batch_size=None, name='Ob'):
         input_x = tf.placeholder(shape=input_shape, dtype=ob_space.dtype, name=name)
         processed_x = tf.to_float(input_x)
         return input_x, processed_x
-
+    elif isinstance(ob_space, Dict):
+        input_x_list = []
+        processed_x_list = []
+        for nam, space in ob_space.spaces.items():
+            input_shape = (batch_size,) + space.shape
+            input_x = tf.placeholder(shape=input_shape, dtype=space.dtype, name=nam)
+            processed_x = tf.to_float(input_x)
+            input_x_list.append(input_x)
+            processed_x_list.append(processed_x)
+        return (*input_x_list, *processed_x_list)
     else:
         raise NotImplementedError
 
