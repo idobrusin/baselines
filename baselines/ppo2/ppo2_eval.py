@@ -26,9 +26,10 @@ def eval(env, nsteps, gamma=0.99, lam=0.95, load_path=None, nminibatches=4, vf_c
     ac_space = env.action_space
     nbatch = nenvs * nsteps
     nbatch_train = nbatch // nminibatches
-    #policy = CnnPolicy
-    policy = MlpPolicy
+    policy = CnnPolicy
+    #policy = MlpPolicy
 
+    print(ob_space)
     make_model = lambda : Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nbatch_act=nenvs, nbatch_train=nbatch_train,
                     nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
                     max_grad_norm=max_grad_norm)
