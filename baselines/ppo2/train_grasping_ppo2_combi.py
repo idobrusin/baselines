@@ -11,7 +11,7 @@ def train(env_id, num_timesteps, seed):
     from baselines.common import set_global_seeds
     from baselines.common.vec_env.vec_normalize import VecNormalize, ImVecNormalize
     from baselines.ppo2 import ppo2
-    from baselines.ppo2.policies import AsyncCombiPolicy, CombiPolicy
+    from baselines.ppo2.policies import AsyncCombiPolicy, CombiPolicy, CnnPolicy
     import gym
     import tensorflow as tf
     from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
@@ -25,6 +25,7 @@ def train(env_id, num_timesteps, seed):
 
     def make_env():
         env = gym.make(env_id)
+        env.seed(seed)
         env = bench.Monitor(env, logger.get_dir())
         return env
 
@@ -32,7 +33,7 @@ def train(env_id, num_timesteps, seed):
     env = ImVecNormalize(env)
 
     set_global_seeds(seed)
-    policy = CombiPolicy
+    policy = CnnPolicy
     ppo2.learn(policy=policy, env=env, nsteps=2048, nminibatches=32,
                lam=0.95, gamma=0.99, noptepochs=4, log_interval=1,
                ent_coef=0.0,
@@ -50,10 +51,10 @@ def train(env_id, num_timesteps, seed):
 def main():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    logger.configure(dir=osp.join("/home/kuka/lang/baselines/baselines/ppo2/logs/combi/",
-                                  datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")),
-                     format_strs=["tensorboard", "stdout", "csv", "log"])
-    train(env_id='kuka_block_cont_combi-v0', num_timesteps=10e7, seed=1)
+    logger.configure(dir=osp.join("/home/hermannl/master_thesis/git/baselines_private/baselines/ppo2/logs/",
+                                    datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")),
+                                    format_strs=["tensorboard", "stdout", "csv", "log"])
+    train(env_id='kuka_block_cont_img-v0', num_timesteps=10e7, seed=1)
 
 
 if __name__ == '__main__':

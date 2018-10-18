@@ -133,8 +133,8 @@ class Runner(AbstractEnvRunner):
             mb_dones.append(self.dones)
 
             if render and i < 100:
-                frame = self.env.venv.envs[0].render(mode="rgb_array")*255
-                cv2.imwrite(self.img_save_path + "iter_" + str(iteration) + "/img_" + str(i) + ".png", frame)
+                frame = self.env.venv.envs[0].render(mode="rgb_array")
+                cv2.imwrite(self.img_save_path + "iter_" + str(iteration) + "/img_" + str(i) + ".png", frame[:,:,::-1])
 
             self.obs, rewards, self.dones, infos = self.env.step(actions)
             # added this for play_grasping evaluation
@@ -283,7 +283,8 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
             savepath = osp.join(checkdir, '%.5i'%update)
             print('Saving to', savepath)
             model.save(savepath)
-            env.save_norm(savepath)
+            if isinstance(obs, dict):
+                env.save_norm(savepath)
     env.close()
     return model
 
