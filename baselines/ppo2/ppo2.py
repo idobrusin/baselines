@@ -105,7 +105,7 @@ class Runner(AbstractEnvRunner):
             self.img_save_path = logger.get_dir() + "/imgs/"
             os.mkdir(self.img_save_path)
 
-    def run(self, iteration):
+    def run(self, iteration=1):
         mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[]
         if isinstance(self.obs, dict):
             mb_obs = {}
