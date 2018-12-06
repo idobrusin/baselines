@@ -110,8 +110,8 @@ def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interva
                                 lrschedule=lrschedule, is_async=is_async)
     if save_interval and logger.get_dir():
         import cloudpickle
-        with open(osp.join(logger.get_dir(), 'make_model.pkl'), 'wb') as fh:
-            fh.write(cloudpickle.dumps(make_model))
+        # with open(osp.join(logger.get_dir(), 'make_model.pkl'), 'wb') as fh:
+        #     fh.write(cloudpickle.dumps(make_model))
     model = make_model()
 
     if load_path is not None:
@@ -127,7 +127,7 @@ def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interva
         enqueue_threads = []
 
     for update in range(1, total_timesteps//nbatch+1):
-        obs, states, rewards, masks, actions, values = runner.run()
+        obs, states, rewards, masks, actions, values, ep_rew_mean = runner.run()
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         model.old_obs = obs
         nseconds = time.time()-tstart
@@ -141,6 +141,7 @@ def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interva
             logger.record_tabular("policy_loss", float(policy_loss))
             logger.record_tabular("value_loss", float(value_loss))
             logger.record_tabular("explained_variance", float(ev))
+            logger.record_tabular("eprewmean", float(ep_rew_mean))
             logger.dump_tabular()
 
         if save_interval and (update % save_interval == 0 or update == 1) and logger.get_dir():
