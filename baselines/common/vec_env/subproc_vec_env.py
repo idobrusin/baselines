@@ -13,8 +13,16 @@ def worker(remote, parent_remote, env_fn_wrapper):
                 if done:
                     ob = env.reset()
                 remote.send((ob, reward, done, info))
+            elif cmd == 'step_with_curriculum_reset':
+                ob, reward, done, info = env.step(data)
+                if done:
+                    ob = env.reset(reset_from_episode=True)
+                remote.send((ob, reward, done, info))
             elif cmd == 'reset':
                 ob = env.reset()
+                remote.send(ob)
+            elif cmd == 'reset_from_curriculum':
+                ob = env.reset(reset_from_episode=True)
                 remote.send(ob)
             elif cmd == 'render':
                 remote.send(env.render(mode='rgb_array'))
@@ -65,6 +73,12 @@ class SubprocVecEnv(VecEnv):
             remote.send(('step', action))
         self.waiting = True
 
+    def step_async_with_curriculum_reset(self, actions):
+        self._assert_not_closed()
+        for remote, action in zip(self.remotes, actions):
+            remote.send(('step_with_curriculum_reset', action))
+        self.waiting = True
+
     def step_wait(self):
         self._assert_not_closed()
         results = [remote.recv() for remote in self.remotes]
@@ -76,6 +90,12 @@ class SubprocVecEnv(VecEnv):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset', None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def reset_from_curriculum(self):
+        self._assert_not_closed()
+        for remote in self.remotes:
+            remote.send(('reset_from_curriculum', None))
         return np.stack([remote.recv() for remote in self.remotes])
 
     def close_extras(self):
