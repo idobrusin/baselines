@@ -55,7 +55,7 @@ class VecEnv(ABC):
         pass
 
     @abstractmethod
-    def reset_from_curriculum(self):
+    def reset_from_curriculum(self, data):
         """
         Reset all the environments and return an array of
         observations, or a dict of observation arrays.
@@ -79,7 +79,7 @@ class VecEnv(ABC):
         pass
 
     @abstractmethod
-    def step_async_with_curriculum_reset(self, actions):
+    def step_async_with_curriculum_reset(self, actions, data):
         """
         Tell all the environments to start taking a step
         with the given actions.
@@ -128,13 +128,13 @@ class VecEnv(ABC):
         self.step_async(actions)
         return self.step_wait()
 
-    def step_with_curriculum_reset(self, actions):
+    def step_with_curriculum_reset(self, actions, data):
         """
         Step the environments synchronously.
 
         This is available for backwards compatibility.
         """
-        self.step_async_with_curriculum_reset(actions)
+        self.step_async_with_curriculum_reset(actions, data)
         return self.step_wait()
 
     def render(self, mode='human'):
