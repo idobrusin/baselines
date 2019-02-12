@@ -27,6 +27,7 @@ class DummyVecEnv(VecEnv):
         self.buf_rews  = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos = [{} for _ in range(self.num_envs)]
         self.actions = None
+        self.data = None
 
     def step_async(self, actions):
         listify = True
@@ -36,6 +37,7 @@ class DummyVecEnv(VecEnv):
         except TypeError:
             pass
 
+        self.data = None
         if not listify:
             self.actions = actions
         else:
@@ -43,10 +45,14 @@ class DummyVecEnv(VecEnv):
             self.actions = [actions]
 
     def reset_from_curriculum(self, data):
-        pass
+        for e in range(self.num_envs):
+            obs = self.envs[e].reset(data)
+            self._save_obs(e, obs)
+        return self._obs_from_buf()
 
     def step_async_with_curriculum_reset(self, actions, data):
-        pass
+        self.step_async(actions)
+        self.data = data
 
     def step_wait(self):
         for e in range(self.num_envs):
@@ -56,7 +62,7 @@ class DummyVecEnv(VecEnv):
 
             obs, self.buf_rews[e], self.buf_dones[e], self.buf_infos[e] = self.envs[e].step(action)
             if self.buf_dones[e]:
-                obs = self.envs[e].reset()
+                obs = self.envs[e].reset(data=self.data)
             self._save_obs(e, obs)
         return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones),
                 self.buf_infos.copy())
