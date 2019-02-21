@@ -184,6 +184,9 @@ class VecEnvWrapper(VecEnv):
     def step_async(self, actions):
         self.venv.step_async(actions)
 
+    def step_async_with_curriculum_reset(self, actions, data):
+        self.venv.step_async_with_curriculum_reset(actions, data)
+
     @abstractmethod
     def reset(self):
         pass

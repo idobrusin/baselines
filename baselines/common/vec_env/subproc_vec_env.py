@@ -86,19 +86,30 @@ class SubprocVecEnv(VecEnv):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
-        return np.stack(obs), np.stack(rews), np.stack(dones), infos
+        if isinstance(obs[0], dict):
+            return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}, np.stack(rews), np.stack(dones), infos
+        else:
+            return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
     def reset(self):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset', None))
-        return np.stack([remote.recv() for remote in self.remotes])
+        obs = np.stack([remote.recv() for remote in self.remotes])
+        if isinstance(obs[0], dict):
+            return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}
+        else:
+            return np.stack(obs)
 
     def reset_from_curriculum(self, data):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset_from_curriculum', data))
-        return np.stack([remote.recv() for remote in self.remotes])
+        obs = np.stack([remote.recv() for remote in self.remotes])
+        if isinstance(obs[0], dict):
+            return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}
+        else:
+            return np.stack(obs)
 
     def close_extras(self):
         self.closed = True
