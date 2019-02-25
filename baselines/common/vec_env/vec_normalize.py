@@ -49,7 +49,7 @@ class DictVecNormalize(VecEnvWrapper):
     """
     Vectorized environment base class
     """
-    def __init__(self, venv, ob=True, ret=True, clipob=10., cliprew=10., gamma=0.99, epsilon=1e-8):
+    def __init__(self, venv, ob=True, ret=False, clipob=10., cliprew=10., gamma=0.99, epsilon=1e-8):
         VecEnvWrapper.__init__(self, venv)
         if isinstance(self.observation_space, Dict):
             self.ob_robot_rms = RunningMeanStd(
