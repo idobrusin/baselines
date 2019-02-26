@@ -83,6 +83,9 @@ class SubprocVecEnv(VecEnv):
 
     def step_wait(self):
         self._assert_not_closed()
+        if not np.all([remote.poll(10) for remote in self.remotes]):
+            print([remote.poll(10) for remote in self.remotes])
+            raise TimeoutError
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
@@ -95,6 +98,9 @@ class SubprocVecEnv(VecEnv):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset', None))
+        if not np.all([remote.poll(10) for remote in self.remotes]):
+            print([remote.poll(10) for remote in self.remotes])
+            raise TimeoutError
         obs = np.stack([remote.recv() for remote in self.remotes])
         if isinstance(obs[0], dict):
             return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}
@@ -105,6 +111,9 @@ class SubprocVecEnv(VecEnv):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset_from_curriculum', data))
+        if not np.all([remote.poll(10) for remote in self.remotes]):
+            print([remote.poll(10) for remote in self.remotes])
+            raise TimeoutError
         obs = np.stack([remote.recv() for remote in self.remotes])
         if isinstance(obs[0], dict):
             return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}
