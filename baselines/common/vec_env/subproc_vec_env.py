@@ -83,8 +83,9 @@ class SubprocVecEnv(VecEnv):
 
     def step_wait(self):
         self._assert_not_closed()
-        if not np.all([remote.poll(10) for remote in self.remotes]):
-            print([remote.poll(10) for remote in self.remotes])
+        remotes_responsive = [remote.poll(1000) for remote in self.remotes]
+        if not np.all(remotes_responsive):
+            print(remotes_responsive)
             raise TimeoutError
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
@@ -98,8 +99,9 @@ class SubprocVecEnv(VecEnv):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset', None))
-        if not np.all([remote.poll(10) for remote in self.remotes]):
-            print([remote.poll(10) for remote in self.remotes])
+        remotes_responsive = [remote.poll(1000) for remote in self.remotes]
+        if not np.all(remotes_responsive):
+            print(remotes_responsive)
             raise TimeoutError
         obs = np.stack([remote.recv() for remote in self.remotes])
         if isinstance(obs[0], dict):
@@ -111,8 +113,9 @@ class SubprocVecEnv(VecEnv):
         self._assert_not_closed()
         for remote in self.remotes:
             remote.send(('reset_from_curriculum', data))
-        if not np.all([remote.poll(10) for remote in self.remotes]):
-            print([remote.poll(10) for remote in self.remotes])
+        remotes_responsive = [remote.poll(1000) for remote in self.remotes]
+        if not np.all(remotes_responsive):
+            print(remotes_responsive)
             raise TimeoutError
         obs = np.stack([remote.recv() for remote in self.remotes])
         if isinstance(obs[0], dict):
