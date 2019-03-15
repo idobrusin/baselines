@@ -72,7 +72,7 @@ class SubprocVecEnv(VecEnv):
         self.viewer = None
         VecEnv.__init__(self, len(env_fns), self.observation_space, self.action_space)
 
-    def restart_envs(self, poll_results):
+    def restart_envs(self, poll_results, do_step=False):
         for i, r in enumerate(poll_results):
             if not r:
                 self.ps[i].terminate()
@@ -82,8 +82,9 @@ class SubprocVecEnv(VecEnv):
                 self.ps[i].start()
                 self.work_remotes[i].close()
                 self.remotes[i].send(('reset', None))
-                self.remotes[i].recv()
-                self.remotes[i].send(('step', self.action_space.sample()))
+                if do_step:
+                    self.remotes[i].recv()
+                    self.remotes[i].send(('step', self.action_space.sample()))
 
     def step_async(self, actions):
         self._assert_not_closed()
@@ -103,7 +104,7 @@ class SubprocVecEnv(VecEnv):
         if not np.all(remotes_responsive):
             print(remotes_responsive)
             print("restart envs")
-            self.restart_envs(remotes_responsive)
+            self.restart_envs(remotes_responsive, do_step=True)
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
