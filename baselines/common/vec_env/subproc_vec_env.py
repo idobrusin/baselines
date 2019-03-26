@@ -101,10 +101,11 @@ class SubprocVecEnv(VecEnv):
     def step_wait(self):
         self._assert_not_closed()
         remotes_responsive = [remote.poll(10) for remote in self.remotes]
-        if not np.all(remotes_responsive):
+        while not np.all(remotes_responsive):
             print(remotes_responsive)
             print("restart envs")
             self.restart_envs(remotes_responsive, do_step=True)
+            remotes_responsive = [remote.poll(10) for remote in self.remotes]
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
@@ -118,10 +119,11 @@ class SubprocVecEnv(VecEnv):
         for remote in self.remotes:
             remote.send(('reset', None))
         remotes_responsive = [remote.poll(10) for remote in self.remotes]
-        if not np.all(remotes_responsive):
+        while not np.all(remotes_responsive):
             print(remotes_responsive)
             print("restart envs")
             self.restart_envs(remotes_responsive)
+            remotes_responsive = [remote.poll(10) for remote in self.remotes]
         obs = np.stack([remote.recv() for remote in self.remotes])
         if isinstance(obs[0], dict):
             return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}
@@ -133,10 +135,11 @@ class SubprocVecEnv(VecEnv):
         for remote in self.remotes:
             remote.send(('reset_from_curriculum', data))
         remotes_responsive = [remote.poll(10) for remote in self.remotes]
-        if not np.all(remotes_responsive):
+        while not np.all(remotes_responsive):
             print(remotes_responsive)
             print("restart envs")
             self.restart_envs(remotes_responsive)
+            remotes_responsive = [remote.poll(10) for remote in self.remotes]
         obs = np.stack([remote.recv() for remote in self.remotes])
         if isinstance(obs[0], dict):
             return {key: np.stack([ob[key] for ob in obs]) for key in obs[0].keys()}
