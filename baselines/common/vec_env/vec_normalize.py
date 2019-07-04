@@ -39,6 +39,9 @@ class VecNormalize(VecEnvWrapper):
         else:
             return obs
 
+    def reset_from_curriculum(self, data):
+        raise NotImplementedError
+
     def reset(self):
         self.ret = np.zeros(self.num_envs)
         obs = self.venv.reset()
