@@ -41,6 +41,8 @@ class VecEnv(ABC):
         self.num_envs = num_envs
         self.observation_space = observation_space
         self.action_space = action_space
+        self.reward_range = None
+        self.metadata = None
 
     @abstractmethod
     def reset(self):
