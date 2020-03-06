@@ -1,7 +1,9 @@
 import numpy as np
 from gym import spaces
+
 from . import VecEnv
 from .util import copy_obs_dict, dict_to_obs, obs_space_info
+
 
 class DummyVecEnv(VecEnv):
     """
@@ -62,6 +64,7 @@ class DummyVecEnv(VecEnv):
 
             obs, self.buf_rews[e], self.buf_dones[e], self.buf_infos[e] = self.envs[e].step(action)
             if self.buf_dones[e]:
+                # TODO: Fix / remove environment reset in step function. This should not be called here.
                 if self.data:
                     obs = self.envs[e].reset(data=self.data)
                 else:

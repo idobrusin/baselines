@@ -1,8 +1,10 @@
-from . import VecEnvWrapper
-from baselines.common.running_mean_std import RunningMeanStd
-import numpy as np
 import pickle
-from gym.spaces.dict_space import Dict
+
+import numpy as np
+from gym.spaces.dict import Dict
+
+from baselines.common.running_mean_std import RunningMeanStd
+from . import VecEnvWrapper
 
 
 class VecNormalize(VecEnvWrapper):
